@@ -161,7 +161,7 @@ private:
         crazyflie_driver::crtpPacket packet;
         packet.size = it->size;
         packet.header = it->data[0];
-        for(int i = 0; i < packet.size; i++)
+        for(int i = 0; i < (packet.size-1); i++)
         {
           packet.data[i] = it->data[i+1];
         }
