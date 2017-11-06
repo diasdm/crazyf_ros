@@ -11,15 +11,17 @@ import datetime
 from signal import signal, SIGPIPE, SIG_DFL
 
 signal(SIGPIPE,SIG_DFL)
-CF_ON_TIME = 60 # How many seconds the cf is connected
+CF_ON_TIME = 180 # How many seconds the sound will be recorded
 SAMPLING_FREQ = 7000 # Microphone sampling frequency
 timestamp = datetime.datetime.now() # Gets timestamp
-global sub
+global sub # Subscriber object
 
+# Function called on packet arrival
 def callback(packet):
+    # Checks header
     if packet.header == 16:
         sp.incoming(packet)
-       
+
 def listener():
     rospy.init_node('micDeckClient', anonymous=True)
     global sub
