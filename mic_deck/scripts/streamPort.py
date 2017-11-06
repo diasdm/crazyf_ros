@@ -1,8 +1,10 @@
 import numpy as np
+from signal import signal, SIGPIPE, SIG_DFL
 
 class StreamPort:
 
     def __init__(self, q, bytesOfData, CF_ON_TIME, SAMPLING_FREQ):
+        signal(SIGPIPE,SIG_DFL)
         # Initializes different values
         self.bytesOfData = bytesOfData
         # Last received data buffer
@@ -51,15 +53,15 @@ class StreamPort:
         # Callback for data received from the copter.
         # If it is the first packet received buffers it
         if not self.packetRecieved:
-            self.newDataPacketCount = packet.data[0]
+            self.newDataPacketCount = ord(packet.data[0])
             self.newData = np.fromstring(packet.data[1:], dtype=np.uint8)
             self.packetRecieved += 1
         else:
             # For some reason some times the same message is recieved
-            if self.newDataPacketCount != packet.data[0]:
+            if self.newDataPacketCount != ord(packet.data[0]):
                 self.dispDataPacketCount = self.newDataPacketCount
                 self.dispData = self.newData
-                self.newDataPacketCount = packet.data[0]
+                self.newDataPacketCount = ord(packet.data[0])
                 self.newData = np.fromstring(packet.data[1:], dtype=np.uint8)
 
                 self.unpack_stream()
@@ -69,16 +71,16 @@ class StreamPort:
                 if self.newDataPacketCount > self.dispDataPacketCount:
                     jump = self.newDataPacketCount - self.dispDataPacketCount - 1
                     times = np.arange(self.dispDataPacketCount + self.packetCountLoop * 256,
-                                    self.newDataPacketCount + self.packetCountLoop * 256, 1 / 19)
+                                    self.newDataPacketCount + self.packetCountLoop * 256, 1 / 19.)
                 else:
                     jump = 255 - self.dispDataPacketCount + self.newDataPacketCount
                     times = np.arange(self.dispDataPacketCount + self.packetCountLoop * 256,
-                                    self.newDataPacketCount + (self.packetCountLoop + 1) * 256, 1 / 19)
+                                    self.newDataPacketCount + (self.packetCountLoop + 1) * 256, 1 / 19.)
                     self.packetCountLoop += 1
                 # Displays percentage of packets lost
                 if jump:
                     self.packetLostCount += jump
-                    print('The % of lost packet is', self.packetLostCount/(self.packetRecieved+self.packetLostCount))
+                    print('The % of lost packet is', 1.*self.packetLostCount/(self.packetRecieved+self.packetLostCount))
                 # Sends fake data to queue when packet is lost (average value)
                 for i in range(0, 19*jump):
                     self.q.put([times[i], 1743])

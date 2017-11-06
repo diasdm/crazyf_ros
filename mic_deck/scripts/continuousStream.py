@@ -4,14 +4,18 @@ Displays continous stream
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
-from multiprocessing import Process, Queue
+from multiprocessing import Process
 import time
+import signal
+from signal import signal, SIGPIPE, SIG_DFL, SIGINT
 
 class ContinousStream:
     # Displays continous stream by buffering <samplesBuffered> samples
-    def __init__(self, secToDisp, SAMPLING_FREQ, graphUpdateFreq):
+    def __init__(self, q, secToDisp, SAMPLING_FREQ, graphUpdateFreq):
+        signal(SIGPIPE,SIG_DFL)
+        signal(SIGINT,SIG_DFL)
         self.process = Process(target=self.run)
-        self.q = Queue()
+        self.q = q
         # Buffer length
         self.storedSamp = secToDisp * SAMPLING_FREQ
         self.xbuffer = np.zeros(self.storedSamp, dtype=np.float)
@@ -23,13 +27,12 @@ class ContinousStream:
         self.ydata = np.zeros(self.storedSamp, dtype=np.uint16)
         self.ptr = 0
         self.timer = pg.QtCore.QTimer()
+        self.app = QtGui.QApplication([])
 
     def start(self):
         self.process.start()
-        return self.q
 
     def run(self):
-        self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow()
         self.win.setWindowTitle('pyqtgraph example: Scrolling Plots')
 
