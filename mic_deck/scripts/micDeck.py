@@ -9,10 +9,11 @@ from multiprocessing import Queue
 import numpy as np
 import datetime
 from signal import signal, SIGPIPE, SIG_DFL
+import scipy.io.wavfile
 
 signal(SIGPIPE,SIG_DFL)
-CF_ON_TIME = 180 # How many seconds the sound will be recorded
 SAMPLING_FREQ = 7000 # Microphone sampling frequency
+AUDIO_MEAN = 1743 # Value used to replace a lost packet
 timestamp = datetime.datetime.now() # Gets timestamp
 global sub # Subscriber object
 
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     cs = ContinousStream(q, 4, SAMPLING_FREQ, 24)
     cs.start()
     # Unpacks and queues audio signal
-    sp = StreamPort(q, 29, CF_ON_TIME, SAMPLING_FREQ)
+    sp = StreamPort(q, 29, SAMPLING_FREQ, AUDIO_MEAN)
     # Subscribes to topic and spins
     listener()
     # Unsubscribe
@@ -48,6 +49,6 @@ if __name__ == '__main__':
     # Joins process
     cs.process.join()
     # Saves audio array to a csv file
-    np.savetxt(timestamp.strftime("%d-%m_%H:%M:%S") + ".csv", sp.audioVector[:sp.ptr], delimiter=",")
+    scipy.io.wavfile.write("/home/david/projects/catkin_cf/" + timestamp.strftime("%d-%m_%H:%M:%S") + ".wav", SAMPLING_FREQ, np.asarray(sp.audioVector, dtype=np.int16))
     # Closes queue
     q.close()

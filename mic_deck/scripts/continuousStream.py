@@ -25,7 +25,7 @@ class ContinousStream:
         self.graphUpdateFreq = graphUpdateFreq
         # Number of seconds of data displayed
         self.xdata = np.arange(-secToDisp, 0, 1. / SAMPLING_FREQ)
-        self.ydata = np.zeros(self.xdata.size, dtype=np.uint16)
+        self.ydata = np.ones(self.xdata.size, dtype=np.uint16) * 1743
         self.ptr = 0
         # Number of samples used for computing the Spectrogram
         self.sampToSpec = 1024

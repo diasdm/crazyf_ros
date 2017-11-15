@@ -3,14 +3,15 @@ from signal import signal, SIGPIPE, SIG_DFL
 
 class StreamPort:
     # Unpacks and queues audio samples
-    def __init__(self, q, bytesOfData, CF_ON_TIME, SAMPLING_FREQ):
+    def __init__(self, q, bytesOfData, SAMPLING_FREQ, AUDIO_MEAN):
         signal(SIGPIPE,SIG_DFL)
         self.bytesOfData = bytesOfData
+        self.AUDIO_MEAN = AUDIO_MEAN
         # Last received data buffer
         self.newData = np.zeros(self.bytesOfData, dtype=np.uint8)
         # Previous received data buffer
         # We buffer one packet to know if any packets where lost between the two last recieved
-        self.dispData = np.zeros(self.bytesOfData, dtype=np.uint8)
+        self.dispData = np.ones(self.bytesOfData, dtype=np.uint8) * self.AUDIO_MEAN
         # Vector to which the data in unpacked
         self.unpackedData = np.zeros(19, dtype=np.uint16)
         # Flags if any packet was received
@@ -20,7 +21,7 @@ class StreamPort:
         # Packet lost count
         self.packetLostCount = 0
         # Audio vector
-        self.audioVector = np.zeros(CF_ON_TIME*SAMPLING_FREQ, dtype=np.int32)
+        self.audioVector = []
         self.ptr = 0;
     
     def unpack_stream(self):
@@ -79,11 +80,11 @@ class StreamPort:
                     print('The % of lost packet is', 1.*self.packetLostCount/(self.packetRecieved+self.packetLostCount))
                 # Queues the average value when a packet is lost
                 for i in range(0, 19*jump):
-                    self.q.put(1743)
-                    self.audioVector[self.ptr] = 1743
+                    self.q.put(self.AUDIO_MEAN)
+                    self.audioVector.append(self.AUDIO_MEAN)
                     self.ptr += 1
                 # Queues recieved data
                 for i in range(0, 19):
                     self.q.put(self.unpackedData[i])
-                    self.audioVector[self.ptr] = self.unpackedData[i]
+                    self.audioVector.append(self.unpackedData[i])
                     self.ptr += 1
