@@ -11,6 +11,8 @@ import datetime
 from signal import signal, SIGPIPE, SIG_DFL
 import scipy.io.wavfile
 import constants
+from rospy.numpy_msg import numpy_msg
+from rospy_tutorials.msg import Floats
 
 signal(SIGPIPE,SIG_DFL)
 timestamp = datetime.datetime.now() # Gets timestamp
@@ -35,8 +37,10 @@ if __name__ == '__main__':
     # Displays graph
     cs = ContinousStream(q, 4, constants.CF_FS, 24)
     cs.start()
+    # FFT values publisher
+    specPub = rospy.Publisher('fftValues', numpy_msg(Floats), queue_size=10)
     # Unpacks and queues audio signal
-    sp = StreamPort(q, 29, constants.CF_FS, constants.AUDIO_MEAN)
+    sp = StreamPort(q, 29, constants.CF_FS, constants.AUDIO_MEAN, specPub)
     # Subscribes to topic and spins
     listener()
     # Unsubscribe

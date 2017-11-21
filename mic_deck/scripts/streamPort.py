@@ -3,7 +3,7 @@ from signal import signal, SIGPIPE, SIG_DFL
 
 class StreamPort:
     # Unpacks and queues audio samples
-    def __init__(self, q, bytesOfData, SAMPLING_FREQ, AUDIO_MEAN):
+    def __init__(self, q, bytesOfData, SAMPLING_FREQ, AUDIO_MEAN, specPub):
         signal(SIGPIPE,SIG_DFL)
         self.bytesOfData = bytesOfData
         self.AUDIO_MEAN = AUDIO_MEAN
@@ -11,18 +11,23 @@ class StreamPort:
         self.newData = np.zeros(self.bytesOfData, dtype=np.uint8)
         # Previous received data buffer
         # We buffer one packet to know if any packets where lost between the two last recieved
-        self.dispData = np.ones(self.bytesOfData, dtype=np.uint8) * self.AUDIO_MEAN
+        self.dispData = np.full(self.bytesOfData, self.AUDIO_MEAN, dtype=np.uint8)
         # Vector to which the data in unpacked
         self.unpackedData = np.zeros(19, dtype=np.uint16)
-        # Flags if any packet was received
-        self.packetRecieved = 0
+        # Flags if any packet was received and ignores the first 500 packets
+        # For some reason in the beginig the packet lost rate is too high
+        self.packetRecieved = -500 
         # Queue used to send the audio to continuousStream process
         self.q = q
         # Packet lost count
         self.packetLostCount = 0
         # Audio vector
         self.audioVector = []
-        self.ptr = 0;
+        # Spectrogram
+        self.specPub = specPub
+        self.sampToSpec = 1024
+        self.partAudVect = np.full(self.sampToSpec, self.AUDIO_MEAN, dtype=np.uint16)
+        self.wind = np.hanning(self.sampToSpec)
     
     def unpack_stream(self):
         aux = np.uint16
@@ -51,7 +56,7 @@ class StreamPort:
     def incoming(self, packet):
         # Callback for data received from Crazyflie
         # If it is the first packet received buffers it
-        if not self.packetRecieved:
+        if self.packetRecieved < 0:
             # Increment value
             self.newDataPacketCount = ord(packet.data[0])
             # Audio samples
@@ -78,13 +83,26 @@ class StreamPort:
                 if jump:
                     self.packetLostCount += jump
                     print('The % of lost packet is', 1.*self.packetLostCount/(self.packetRecieved+self.packetLostCount))
+                    self.partAudVect = np.roll(self.partAudVect, -19*jump)
+                    self.partAudVect[-19*jump:] = np.full(19*jump, self.AUDIO_MEAN, dtype=np.uint16)
                 # Queues the average value when a packet is lost
                 for i in range(0, 19*jump):
                     self.q.put(self.AUDIO_MEAN)
                     self.audioVector.append(self.AUDIO_MEAN)
-                    self.ptr += 1
                 # Queues recieved data
                 for i in range(0, 19):
                     self.q.put(self.unpackedData[i])
                     self.audioVector.append(self.unpackedData[i])
-                    self.ptr += 1
+                    
+                self.partAudVect = np.roll(self.partAudVect, -19)
+                self.partAudVect[-19:] = self.unpackedData
+                
+                if not self.packetRecieved % 25:
+                    # FFT computation
+                    spec = np.fft.rfft(self.partAudVect*self.wind) / self.sampToSpec
+                    # Get magnitude 
+                    psd = abs(spec)
+                    # Convert to dB scale
+                    psd = 20 * np.log10(psd)
+                    # Publishes fft values
+                    self.specPub.publish(psd)

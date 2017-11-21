@@ -28,7 +28,7 @@
     </group>
     
     <!-- Display and sound wave -->
-    <node name="wave_plot" pkg="mic_deck" type="micDeck.py" output="screen">
+    <node name="micDeck" pkg="mic_deck" type="micDeck.py" output="screen">
     </node>
 
   

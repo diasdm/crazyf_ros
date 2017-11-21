@@ -26,7 +26,7 @@ class ContinousStream:
         self.graphUpdateFreq = graphUpdateFreq
         # Number of seconds of data displayed
         self.xdata = np.arange(-secToDisp, 0, 1. / SAMPLING_FREQ)
-        self.ydata = np.ones(self.xdata.size, dtype=np.uint16) * constants.AUDIO_MEAN
+        self.ydata = np.full(self.xdata.size, constants.AUDIO_MEAN, dtype=np.uint16)
         self.ptr = 0
         # Number of samples used for computing the Spectrogram
         self.sampToSpec = 1024
@@ -99,11 +99,9 @@ class ContinousStream:
         psd = abs(spec)
         # Convert to dB scale
         psd = 20 * np.log10(psd)
-
         # Roll down image array
         self.imgArray = np.roll(self.imgArray, -1, 0)
         self.imgArray[-1:] = psd
         # Sets image
         self.specImg.setImage(self.imgArray, autoLevels=False)
-        
         self.app.processEvents()
