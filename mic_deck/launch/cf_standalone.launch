@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Antenna --> 
+    <arg name="uri" default="radio://0/80/2M" />
+    <!--Packet topic prefix-->
+    <arg name="packets_prefix" default="" />
+
+    <!-- Crazyflie server (add/remove vehicles and interface with autopilot firmware) -->
+    <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
+    </include>
+
+    <!-- Here goes the configuration of the crazyflie to be launched -->
+    <group ns="crazyflie">
+        <!-- Crazyflie add (instantiate a vehicle) -->
+        <include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
+        <arg name="uri" value="$(arg uri)" />
+        <arg name="tf_prefix" value="crazyflie" />
+        <arg name="enable_logging" value="True" />
+        <arg name="enable_logging_battery" value="False" />
+        <arg name="enable_logging_imu" value="False" />
+        <arg name="enable_logging_magnetic_field" value="False" />
+        <arg name="enable_logging_pressure" value="False" />
+        <arg name="enable_logging_temperature" value="False" />
+
+        <arg name="roll_trim" value="0.0"/>
+        <arg name="pitch_trim" value="0.0"/>
+        </include>
+    </group>
+</launch>
+
+
