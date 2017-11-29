@@ -3,16 +3,11 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 from multiprocessing import Process
 import time
-import signal
-from signal import signal, SIGPIPE, SIG_DFL, SIGINT
 import constants
 
 class ContinousStream:
     # Displays continous stream by buffering <samplesBuffered> samples
     def __init__(self, q, secToDisp, SAMPLING_FREQ, graphUpdateFreq):
-        # Prevents SIGPIPE exception to be displayed
-        signal(SIGPIPE,SIG_DFL)
-        signal(SIGINT,SIG_DFL)
         # Process in which the ploting runs
         self.process = Process(target=self.run)
         # Data queue
@@ -32,12 +27,21 @@ class ContinousStream:
         self.sampToSpec = 1024
         self.timer = pg.QtCore.QTimer()
         self.app = QtGui.QApplication([])
+        self.app.aboutToQuit.connect(self.cleanUp)
+        self.win = pg.GraphicsWindow()
+    
+    def cleanUp(self):
+        # Stops QT timer
+        self.timer.stop()
+        # Closes app
+        self.win.close()
+        self.app.closeAllWindows()
+        print('Window closed')
 
     def start(self):
         self.process.start()
 
-    def run(self):
-        self.win = pg.GraphicsWindow()
+    def run(self):        
         self.win.setWindowTitle('Microphone data')
         # Sound wave plot
         plot = self.win.addPlot()
@@ -82,9 +86,10 @@ class ContinousStream:
         ptrOld = self.ptr
         # Gets samples from queue
         while not self.q.empty():
-            samp = self.q.get()
-            self.ybuffer[self.ptr - ptrOld] = samp
-            self.ptr += 1
+            sampleVec = self.q.get()
+            if sampleVec.size == 19:
+                self.ybuffer[(self.ptr - ptrOld):(self.ptr - ptrOld + 19)] = sampleVec
+                self.ptr += 19
         # Rolls vector
         self.ydata = np.roll(self.ydata, -(self.ptr - ptrOld))
         # Copies samples to the ploted vector
@@ -98,10 +103,9 @@ class ContinousStream:
         # Get magnitude 
         psd = abs(spec)
         # Convert to dB scale
-        psd = 20 * np.log10(psd)
+        psd = 20 * np.log10(psd)            
         # Roll down image array
         self.imgArray = np.roll(self.imgArray, -1, 0)
         self.imgArray[-1:] = psd
         # Sets image
         self.specImg.setImage(self.imgArray, autoLevels=False)
-        self.app.processEvents()

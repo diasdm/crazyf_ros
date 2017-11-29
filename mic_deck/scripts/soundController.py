@@ -1,7 +1,6 @@
 #!/usr/bin/env python2.7
 
 import rospy
-from rospy.numpy_msg import numpy_msg
 from rospy_tutorials.msg import Floats
 import numpy as np
 import constants
@@ -9,6 +8,12 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 from geometry_msgs.msg import PoseStamped
 import tf
+import std_msgs.msg
+
+THRESHOLD = 30
+
+def mse(a, b):
+    return ((a - b) ** 2).mean(dtype=np.float32)
 
 class SoundController:
     def __init__(self):
@@ -26,30 +31,56 @@ class SoundController:
         # Last pose switch
         self.poseTime = rospy.Time.now()
         # Maximum pose switch period
-        #self.posePeriod = 
-        # World frame
-        self.worldFrame = rospy.get_param("~worldFrame", "/world")
+        self.posePeriod = 8
         # Robot goal
-        self.goal = 2
+        self.goal = 0
         # Pose topic name
+        self.worldFrame = rospy.get_param("~worldFrame", "/world")
         self.name = rospy.get_param("~name")
+        self.x = rospy.get_param("~x")
+        self.y = rospy.get_param("~y")
+        self.z = rospy.get_param("~z")
+        self.filesDir = rospy.get_param("~files_dir")
+        # Pose object
+        self.msg = PoseStamped()
+        self.msg.header.seq = 0
+        self.msg.header.stamp = self.poseTime
+        self.msg.header.frame_id = self.worldFrame
+        self.msg.pose.position.x = self.x
+        self.msg.pose.position.y = self.y
+        self.msg.pose.position.z = self.z
+        self.quaternion = tf.transformations.quaternion_from_euler(0, 0, 0)
+        self.msg.pose.orientation.x = self.quaternion[0]
+        self.msg.pose.orientation.y = self.quaternion[1]
+        self.msg.pose.orientation.z = self.quaternion[2]
+        self.msg.pose.orientation.w = self.quaternion[3]
+        # FFT compare value
+        self.silenceFFT = np.genfromtxt(self.filesDir + 'src/mic_deck/scripts/meanSilenceFFT.csv', delimiter=',')
+        self.clappingFFT = np.genfromtxt(self.filesDir + 'src/mic_deck/scripts/meanClappingFFT.csv', delimiter=',')
         # Pose publiser
         self.posePub = rospy.Publisher(self.name, PoseStamped, queue_size=1)
+        self.errPub = rospy.Publisher("mse", std_msgs.msg.Float32, queue_size=1)
         # FFT subscriber
         self.fftSub = rospy.Subscriber("fftValues", Floats, self.callback)
         
     def callback(self, values):
         self.ydata = np.roll(self.ydata, -1)
-        self.ydata[-1] = values.data[147]
+        self.ydata[-1] = np.sum(values.data[(330-2):(330+2)]) / 5 
         self.curve.setData(x=self.xdata, y=self.ydata)
         self.app.processEvents()
-        if self.ydata[-1] > 2 and rospy.Time.now().secs > self.poseTime.secs + 10:
-            self.poseTime = rospy.Time.now()
-            self.posePublisher(0, 0, 0.5*self.goal)
-            if self.goal == 1: 
-                self.goal = 2 
-            else:
-                self.goal = 1
+        err = mse(self.clappingFFT, values.data)
+        self.errPub.publish(err)
+        if err > THRESHOLD and rospy.Time.now().secs > self.poseTime.secs + self.posePeriod:
+           self.poseTime = rospy.Time.now()
+           if self.goal == 0: 
+               self.goal = 1 
+           else:
+               self.goal = 0
+
+        self.msg.header.seq += 1
+        self.msg.pose.position.z = self.z + self.goal*0.5
+        self.msg.header.stamp = rospy.Time.now()
+        self.posePub.publish(self.msg)
     
     def posePublisher(self, x, y, z):
         msg = PoseStamped()
@@ -67,7 +98,8 @@ class SoundController:
         self.posePub.publish(msg)
 
 if __name__ == '__main__':
-    rospy.init_node('soundController', anonymous=True)
+    rospy.init_node('publish_pose', anonymous=True)
+    
     # Sound controller
     sCtrl = SoundController()
     sCtrl.app.exec_()

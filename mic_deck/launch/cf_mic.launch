@@ -30,16 +30,5 @@
     <!-- Display and sound wave -->
     <node name="micDeck" pkg="mic_deck" type="micDeck.py" output="screen">
     </node>
-
-  
-    <!-- Joystick driver node -->
-    <!--<node name="joy" pkg="joy" type="joy_node" output="screen">
-      <param name="dev" value="$(arg joy_dev)" />
-    </node>-->
-
-    <!-- Crazyflie controller manager (checks if orders comes by services or joystick) -->
-    <!--<node name="joystick_controller" pkg="crazyflie_demo" type="controller.py" output="screen">
-      <param name="use_crazyflie_controller" value="True" />
-    </node>-->
 </launch>
 

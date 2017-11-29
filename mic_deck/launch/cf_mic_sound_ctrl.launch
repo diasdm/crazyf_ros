@@ -6,6 +6,10 @@
     <arg name="packets_prefix" default="" />
     <!--Saved files directory-->
     <arg name="files_dir" default="/home/david/projects/catkin_cf/" />
+    
+    <arg name="x" default="0.0" />
+    <arg name="y" default="0.0" />
+    <arg name="z" default="0.5" />
 
     <!-- Crazyflie server (add/remove vehicles and interface with autopilot firmware) -->
     <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
@@ -27,22 +31,25 @@
         <arg name="roll_trim" value="0.0"/>
         <arg name="pitch_trim" value="0.0"/>
         </include>
+        
+        <!-- Display and sound wave -->
+        <node name="wave_plot" pkg="mic_deck" type="micDeck.py" output="screen">
+        </node>
+  
+        <!-- Controls crazyflie goal -->
+        <node name="pose" pkg="mic_deck" type="soundController.py" output="screen">
+            <param name="name" value="goal" />
+            <param name="x" value="$(arg x)" />
+            <param name="y" value="$(arg y)" />
+            <param name="z" value="$(arg z)" />
+            <param name="files_dir" value="$(arg files_dir)" />
+        </node>
     </group>
     
-    <!-- Display and sound wave -->
-    <node name="micDeck" pkg="mic_deck" type="micDeck.py" output="screen">
-        <param name="name" value="goal" />
-    </node>
-    
-    <!-- Pose publisher -->    
-    <node name="soundController" pkg="mic_deck" type="soundController.py" output="screen">
-      <param name="name" value="goal" />
-    </node>
-    
     <!-- Bag recorder -->    
-    <node pkg="rosbag" type="record" name="bag_rec"
-              args="-o $(arg files_dir)bag -a"
-    />q
+    <node pkg="rosbag" type="record" name="bag_rec" 
+          args="-o $(arg files_dir)bag -a -x /crazyflie/packets"
+    />
 </launch>
 
 

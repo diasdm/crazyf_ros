@@ -1,10 +1,8 @@
 import numpy as np
-from signal import signal, SIGPIPE, SIG_DFL
 
 class StreamPort:
     # Unpacks and queues audio samples
     def __init__(self, q, bytesOfData, SAMPLING_FREQ, AUDIO_MEAN, specPub):
-        signal(SIGPIPE,SIG_DFL)
         self.bytesOfData = bytesOfData
         self.AUDIO_MEAN = AUDIO_MEAN
         # Last received data buffer
@@ -85,15 +83,14 @@ class StreamPort:
                     print('The % of lost packet is', 1.*self.packetLostCount/(self.packetRecieved+self.packetLostCount))
                     self.partAudVect = np.roll(self.partAudVect, -19*jump)
                     self.partAudVect[-19*jump:] = np.full(19*jump, self.AUDIO_MEAN, dtype=np.uint16)
+                    self.q.put(np.full(19*jump, self.AUDIO_MEAN, dtype=np.uint16))
                 # Queues the average value when a packet is lost
                 for i in range(0, 19*jump):
-                    self.q.put(self.AUDIO_MEAN)
                     self.audioVector.append(self.AUDIO_MEAN)
                 # Queues recieved data
                 for i in range(0, 19):
-                    self.q.put(self.unpackedData[i])
                     self.audioVector.append(self.unpackedData[i])
-                    
+                self.q.put(self.unpackedData)
                 self.partAudVect = np.roll(self.partAudVect, -19)
                 self.partAudVect[-19:] = self.unpackedData
                 
