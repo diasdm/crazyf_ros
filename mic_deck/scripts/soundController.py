@@ -10,10 +10,7 @@ from geometry_msgs.msg import PoseStamped
 import tf
 import std_msgs.msg
 
-THRESHOLD = 30
-
-def mse(a, b):
-    return ((a - b) ** 2).mean(dtype=np.float32)
+THRESHOLD = 10
 
 class SoundController:
     def __init__(self):
@@ -26,14 +23,26 @@ class SoundController:
         self.plot.setLabel('left', 'Amplitude', '')
         self.plot.showGrid(x=True, y=True)
         self.xdata = np.linspace(0, 3500, 513)
-        self.ydata = np.zeros(513, dtype=np.float)
-        self.curve = self.plot.plot(x=self.xdata, y=self.ydata, pen=(255,0,0))
+        self.upData = np.zeros(513, dtype=np.float)
+        self.downData = np.zeros(513, dtype=np.float)
+        self.upCurve = self.plot.plot(x=self.xdata, y=self.upData, pen=(255,0,0))
+        self.downCurve = self.plot.plot(x=self.xdata, y=self.downData, pen=(0,255,0))
         # Last pose switch
         self.poseTime = rospy.Time.now()
         # Maximum pose switch period
-        self.posePeriod = 8
-        # Robot goal
-        self.goal = 0
+        self.posePeriod = 15
+        # Up Frequency
+        self.upFreq = 1550
+        self.upIndex = int(self.upFreq/(3500.0/513))
+        print("Up index %d", self.upIndex)
+        # Down Frequency 
+        self.downFreq = 1200
+        self.downIndex = int(self.downFreq/(3500.0/513))
+        print("Down index %d", self.downIndex)
+        # Frequency interval
+        self.freqInter = 3
+        # Height increment
+        self.hInc = 0.02
         # Pose topic name
         self.worldFrame = rospy.get_param("~worldFrame", "/world")
         self.name = rospy.get_param("~name")
@@ -59,43 +68,35 @@ class SoundController:
         self.clappingFFT = np.genfromtxt(self.filesDir + 'src/mic_deck/scripts/meanClappingFFT.csv', delimiter=',')
         # Pose publiser
         self.posePub = rospy.Publisher(self.name, PoseStamped, queue_size=1)
-        self.errPub = rospy.Publisher("mse", std_msgs.msg.Float32, queue_size=1)
         # FFT subscriber
         self.fftSub = rospy.Subscriber("fftValues", Floats, self.callback)
         
     def callback(self, values):
-        self.ydata = np.roll(self.ydata, -1)
-        self.ydata[-1] = np.sum(values.data[(330-2):(330+2)]) / 5 
-        self.curve.setData(x=self.xdata, y=self.ydata)
-        self.app.processEvents()
-        err = mse(self.clappingFFT, values.data)
-        self.errPub.publish(err)
-        if err > THRESHOLD and rospy.Time.now().secs > self.poseTime.secs + self.posePeriod:
-           self.poseTime = rospy.Time.now()
-           if self.goal == 0: 
-               self.goal = 1 
-           else:
-               self.goal = 0
-
+        # Up values
+        self.upData = np.roll(self.upData, -1)
+        self.upData[-1] = np.mean(values.data[(self.upIndex-self.freqInter):(self.upIndex+self.freqInter)])
+        self.upCurve.setData(x=self.xdata, y=self.upData)
+        # Down values
+        self.downData = np.roll(self.downData, -1)
+        self.downData[-1] = np.mean(values.data[(self.downIndex-self.freqInter):(self.downIndex+self.freqInter)])
+        self.downCurve.setData(x=self.xdata, y=self.downData)
+        
+        maxIndex = np.argmax([self.downData[-1], self.upData[-1]])
+        max = np.maximum(self.downData[-1], self.upData[-1])
+        
+        if max > THRESHOLD and rospy.Time.now().secs > self.poseTime.secs + self.posePeriod:
+            #self.poseTime = rospy.Time.now()
+            if maxIndex == 0:
+                if self.z > 0.5:
+                    self.z = self.z - self.hInc
+            else:
+                if self.z < 1.0:
+                    self.z = self.z + self.hInc
+            
         self.msg.header.seq += 1
-        self.msg.pose.position.z = self.z + self.goal*0.5
+        self.msg.pose.position.z = self.z
         self.msg.header.stamp = rospy.Time.now()
         self.posePub.publish(self.msg)
-    
-    def posePublisher(self, x, y, z):
-        msg = PoseStamped()
-        msg.header.seq = 0
-        msg.header.stamp = self.poseTime
-        msg.header.frame_id = self.worldFrame
-        msg.pose.position.x = x
-        msg.pose.position.y = y
-        msg.pose.position.z = z
-        quaternion = tf.transformations.quaternion_from_euler(0, 0, 0)
-        msg.pose.orientation.x = quaternion[0]
-        msg.pose.orientation.y = quaternion[1]
-        msg.pose.orientation.z = quaternion[2]
-        msg.pose.orientation.w = quaternion[3]
-        self.posePub.publish(msg)
 
 if __name__ == '__main__':
     rospy.init_node('publish_pose', anonymous=True)
