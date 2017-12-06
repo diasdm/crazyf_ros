@@ -9,7 +9,7 @@
     
     <arg name="x" default="0.0" />
     <arg name="y" default="0.0" />
-    <arg name="z" default="1.2" />
+    <arg name="z" default="0.5" />
 
     <!-- Crazyflie server (add/remove vehicles and interface with autopilot firmware) -->
     <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
