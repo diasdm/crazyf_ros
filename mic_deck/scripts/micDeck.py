@@ -58,7 +58,6 @@ if __name__ == '__main__':
     node = MicDeckNode()
     node.listener()
     node.cs.process.join()
-    print('Process joined')
     # Saves audio array to a wav file
     print('Saving WAV')
     scipy.io.wavfile.write(constants.FILE_PATH + node.timestamp.strftime("%d-%m_%H:%M:%S") + ".wav", constants.CF_FS, 
