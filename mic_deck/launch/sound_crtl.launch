@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Antenna --> 
+    <arg name="uri" default="radio://0/80/2M" />
+    <!--Packet topic prefix-->
+    <arg name="packets_prefix" default="" />
+    <!--Saved files directory-->
+    <arg name="files_dir" default="/home/david/projects/catkin_cf/" />
+    
+    <arg name="x" default="0.0" />
+    <arg name="y" default="0.0" />
+    <arg name="z" default="0.5" />
+
+    <!-- Here goes the configuration of the crazyflie to be launched -->
+    <group ns="crazyflie">
+ 
+        <!-- Controls crazyflie goal -->
+        <node name="pose" pkg="mic_deck" type="soundController.py" output="screen">
+            <param name="name" value="goal" />
+            <param name="x" value="$(arg x)" />
+            <param name="y" value="$(arg y)" />
+            <param name="z" value="$(arg z)" />
+            <param name="files_dir" value="$(arg files_dir)" />
+        </node>
+    </group>
+    
+    <!-- Bag recorder -->    
+    <node pkg="rosbag" type="record" name="bag_rec" 
+          args="-o $(arg files_dir)bag -a -x /crazyflie/packets"
+    />
+</launch>
