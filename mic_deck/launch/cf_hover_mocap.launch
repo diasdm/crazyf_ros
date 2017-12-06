@@ -11,7 +11,8 @@
     <!-- Default set-point -->
     <arg name="x" default="0.0" />
     <arg name="y" default="0.0" />
-    <arg name="z" default="0.5" />
+    <arg name="z" default="0.75" />
+    <arg name="files_dir" default="/home/david/projects/catkin_cf/" />
 
     <!-- Crazyflie server (add/remove vehicles and interface with autopilot firmware) -->
     <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
@@ -73,13 +74,18 @@
             refresh_tracker_frequency: 1.0
             </rosparam>
         </node>
+        
+         <!-- Display and sound wave -->
+        <!-- <node name="wave_plot" pkg="mic_deck" type="micDeck.py" output="screen">
+        </node>-->
     </group>
-
-    <!-- Display and sound wave -->
-    <node name="wave_plot" pkg="mic_deck" type="micDeck.py" output="screen">
-    </node>
 
     <!-- Run rviz -->
     <param name="robot_description" command="$(find xacro)/xacro.py $(find crazyflie_description)/urdf/crazyflie.urdf.xacro" />
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crazyflie_demo)/launch/crazyflie_pos.rviz" required="true" />    
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find crazyflie_demo)/launch/crazyflie_pos.rviz" required="true" /> 
+    
+    <!-- Bag recorder -->    
+    <node pkg="rosbag" type="record" name="bag_rec"
+                args="-o $(arg files_dir)bag -a -x /crazyflie/packets"
+    />
 </launch>
