@@ -10,7 +10,10 @@ from geometry_msgs.msg import PoseStamped
 import tf
 import std_msgs.msg
 
-THRESHOLD = 10
+THRESHOLD = 9.5
+FREQ_AMP_DIF = 6
+CTRL_DELAY = 15
+FREQ_INTERVAL = 4
 
 class SoundController:
     def __init__(self):
@@ -28,9 +31,7 @@ class SoundController:
         self.upCurve = self.plot.plot(x=self.xdata, y=self.upData, pen=(255,0,0))
         self.downCurve = self.plot.plot(x=self.xdata, y=self.downData, pen=(0,255,0))
         # Last pose switch
-        self.poseTime = rospy.Time.now()
-        # Maximum pose switch period
-        self.posePeriod = 15
+        self.initTime = rospy.Time.now()
         # Up Frequency
         self.upFreq = 1550
         self.upIndex = int(self.upFreq/(3500.0/513))
@@ -39,8 +40,6 @@ class SoundController:
         self.downFreq = 1200
         self.downIndex = int(self.downFreq/(3500.0/513))
         print("Down index %d", self.downIndex)
-        # Frequency interval
-        self.freqInter = 3
         # Height increment
         self.hInc = 0.02
         # Pose topic name
@@ -53,7 +52,7 @@ class SoundController:
         # Pose object
         self.msg = PoseStamped()
         self.msg.header.seq = 0
-        self.msg.header.stamp = self.poseTime
+        self.msg.header.stamp = self.initTime
         self.msg.header.frame_id = self.worldFrame
         self.msg.pose.position.x = self.x
         self.msg.pose.position.y = self.y
@@ -74,25 +73,25 @@ class SoundController:
     def callback(self, values):
         # Up values
         self.upData = np.roll(self.upData, -1)
-        self.upData[-1] = np.mean(values.data[(self.upIndex-self.freqInter):(self.upIndex+self.freqInter)])
+        self.upData[-1] = np.mean(values.data[(self.upIndex-FREQ_INTERVAL):(self.upIndex+FREQ_INTERVAL)])
         self.upCurve.setData(x=self.xdata, y=self.upData)
         # Down values
         self.downData = np.roll(self.downData, -1)
-        self.downData[-1] = np.mean(values.data[(self.downIndex-self.freqInter):(self.downIndex+self.freqInter)])
+        self.downData[-1] = np.mean(values.data[(self.downIndex-FREQ_INTERVAL):(self.downIndex+FREQ_INTERVAL)])
         self.downCurve.setData(x=self.xdata, y=self.downData)
         
         maxIndex = np.argmax([self.downData[-1], self.upData[-1]])
         max = np.maximum(self.downData[-1], self.upData[-1])
+        dif = np.absolute(self.downData[-1] - self.upData[-1])
         
-        if max > THRESHOLD and rospy.Time.now().secs > self.poseTime.secs + self.posePeriod:
-            #self.poseTime = rospy.Time.now()
+        if max > THRESHOLD and dif > FREQ_AMP_DIF and rospy.Time.now().secs > self.initTime.secs + CTRL_DELAY:
             if maxIndex == 0:
-                if self.z > 0.5:
+                if self.z > 1.0:
                     self.z = self.z - self.hInc
             else:
-                if self.z < 1.0:
+                if self.z < 1.5:
                     self.z = self.z + self.hInc
-            
+        
         self.msg.header.seq += 1
         self.msg.pose.position.z = self.z
         self.msg.header.stamp = rospy.Time.now()
