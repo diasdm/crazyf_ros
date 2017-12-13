@@ -35,4 +35,3 @@ class MicrophoneRecorder():
         np.savetxt(constants.FILE_PATH + "PCMicTimeStamps.csv", np.asarray(self.times), delimiter=",")
         scipy.io.wavfile.write(constants.FILE_PATH + "PCMicRecording.wav", FS, self.frames)
         print("PC microphone finished recording.")
-    

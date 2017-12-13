@@ -33,6 +33,7 @@ class StreamPort:
         self.audioVector = []
         self.ptr = 0;
         self.times = []
+        self.previousTime = time.time()
         
     def unpack_stream(self):
         aux = np.uint16
@@ -61,13 +62,14 @@ class StreamPort:
     def incoming(self, packet):
         # Callback for data received from Crazyflie
         # If it is the first packet received buffers it
+        now = time.time()
         if not self.packetRecieved:
+            self.previousTime = now
             # Increment value
             self.newDataPacketCount = ord(packet.data[0])
             # Audio samples
             self.newData = np.fromstring(packet.data[1:], dtype=np.uint8)
             self.packetRecieved += 1
-            self.times.append(time.time())
         else:
             # For some reason some times the same packet is recieved twice so this if was added
             if self.newDataPacketCount != ord(packet.data[0]):
@@ -90,16 +92,17 @@ class StreamPort:
                     self.packetLostCount += jump
                     print('The % of lost packet is', 1.*self.packetLostCount/(self.packetRecieved+self.packetLostCount))
                 for i in range(0, jump):
-                    self.times.append(time.time())
+                    self.times.append(self.previousTime)
                 # Queues the average value when a packet is lost
                 for i in range(0, 19*jump):
                     self.audioVector.append(self.AUDIO_MEAN)
                     self.ptr += 1
-                self.times.append(time.time())
+                self.times.append(self.previousTime)
                 # Queues recieved data
                 for i in range(0, 19):
                     self.audioVector.append(self.unpackedData[i])
                     self.ptr += 1
+                self.previousTime = now
                     
     def callback(self, packet):
         # Checks header
@@ -109,7 +112,7 @@ class StreamPort:
 if __name__ == '__main__':
     sp = StreamPort(29, constants.CF_FS, constants.AUDIO_MEAN)
     rospy.init_node('micDeckClient', anonymous=True)
-    rospy.Subscriber("crazyflie/packets", crtpPacket, sp.callback)
+    rospy.Subscriber("crazyflie/packets", crtpPacket, sp.callback, queue_size=1, tcp_nodelay=True)
     mic = MicrophoneRecorder()
     p = Process(target=mic.read())
     p.start()

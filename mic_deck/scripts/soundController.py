@@ -18,6 +18,7 @@ class SoundController:
     def __init__(self):
         # GUI app
         self.app = QtGui.QApplication([])
+        self.app.aboutToQuit.connect(self.cleanUp)
         self.win = pg.GraphicsWindow()
         self.win.setWindowTitle('Sound controller')
         # FFT plot
@@ -103,10 +104,18 @@ class SoundController:
         self.msg.pose.position.z = self.z
         self.msg.header.stamp = rospy.Time.now()
         self.posePub.publish(self.msg)
+        
+    def cleanUp(self):
+        # Unsubscribes
+        self.fftSub.unregister()
+        # Closes app
+        self.win.close()
+        self.app.closeAllWindows()
+        print('Window closed')
 
 if __name__ == '__main__':
     rospy.init_node('publish_pose', anonymous=True)
     # Sound controller
     sCtrl = SoundController()
+    rospy.on_shutdown(sCtrl.cleanUp)
     sCtrl.app.exec_()
-    sCtrl.fftSub.unregister()
